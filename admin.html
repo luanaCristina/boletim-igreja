@@ -310,15 +310,15 @@
                     </div>
                     <div class="mb-4">
                         <label for="leituraDirigente" class="form-label">Texto do Dirigente</label>
-                        <textarea id="leituraDirigente" class="form-textarea" placeholder="Ex: 3 1Oração do profeta Habacuque sob a forma de canto.&#10;2 Senhor, tenho ouvido a tua fama,..." required></textarea>
+                        <textarea id="leituraDirigente" class="form-textarea" placeholder="Ex: 3 1Oração do profeta Habacuque sob a forma de canto.&#10;2 Senhor, tenho ouvido a tua fama,..."></textarea>
                     </div>
                     <div class="mb-4">
                         <label for="leituraTodos" class="form-label">Texto de Todos</label>
-                        <textarea id="leituraTodos" class="form-textarea" placeholder="Ex: 3 Deus vem de Temã,&#10;o Santo vem do monte Parã...." required></textarea>
+                        <textarea id="leituraTodos" class="form-textarea" placeholder="Ex: 3 Deus vem de Temã,&#10;o Santo vem do monte Parã...."></textarea>
                     </div>
                     <div class="mb-4">
                         <label for="leituraFonte" class="form-label">Fonte da Leitura</label>
-                        <textarea id="leituraFonte" class="form-textarea" placeholder="Ex: João Ferreira de Almeida, trad., Nova Almeida Atualizada,..." required></textarea>
+                        <textarea id="leituraFonte" class="form-textarea" placeholder="Ex: João Ferreira de Almeida, trad., Nova Almeida Atualizada,..."></textarea>
                     </div>
                     <button type="submit" class="btn-primary">Salvar Leitura Bíblica <span id="spinnerLeitura" class="loading-spinner hidden"></span></button>
                     <div id="messageLeitura" class="message hidden"></div>
@@ -406,7 +406,7 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, collection, query, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables for Firebase
@@ -535,14 +535,28 @@
             // Tenta autenticar anonimamente OU exibe o login Google
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
-                    userId = user.uid;
-                    authStatusElement.textContent = `Autenticado como: ${user.displayName || user.email || user.uid}`;
-                    googleSignInSection.classList.add('hidden'); // Esconde a seção de login
-                    adminContent.classList.remove('hidden'); // Mostra o conteúdo do admin
-                    await loadAllData(); // Carrega os dados após a autenticação
+                    // Usuário está logado. Verifica se é uma conta Google.
+                    const isGoogleUser = user.providerData.some(provider => provider.providerId === GoogleAuthProvider.PROVIDER_ID);
+
+                    if (isGoogleUser) {
+                        userId = user.uid;
+                        authStatusElement.textContent = `Autenticado como: ${user.displayName || user.email}`;
+                        googleSignInSection.classList.add('hidden'); // Esconde a seção de login
+                        adminContent.classList.remove('hidden'); // Mostra o conteúdo do admin
+                        await loadAllData(); // Carrega os dados
+                    } else {
+                        // Usuário está logado, mas não com Google (ex: anônimo de uma execução anterior do Canvas)
+                        // Para o painel de administração, queremos forçar o login Google.
+                        authStatusElement.textContent = 'Acesso restrito. Faça login com sua conta Google.';
+                        googleSignInSection.classList.remove('hidden'); // Mostra a seção de login
+                        adminContent.classList.add('hidden'); // Esconde o conteúdo do admin
+                        // Opcionalmente, desloga o usuário não-Google para limpar a sessão
+                        await signOut(auth).catch(e => console.error("Erro ao fazer logout:", e));
+                    }
                 } else {
-                    userId = null; // Limpa o userId
-                    authStatusElement.textContent = 'Não autenticado. Faça login para gerenciar.'; // Mensagem mais clara
+                    // Nenhum usuário logado. Solicita login Google.
+                    userId = null;
+                    authStatusElement.textContent = 'Não autenticado. Faça login para gerenciar.';
                     googleSignInSection.classList.remove('hidden'); // Mostra a seção de login
                     adminContent.classList.add('hidden'); // Esconde o conteúdo do admin
                 }
